@@ -21,6 +21,17 @@ public:
 
   void runOnOperation() override {
     std::cout << "WarpSpecializationAnalysisPass\n";
+
+    ModuleOp m = getOperation();
+    m.dump();
+    for (auto func : m.getOps<triton::FuncOp>()) {
+      std::cout << "Function: " << func.getName().str() << "\n";
+      // find all scf.for ops
+      for (auto forOp : func.getOps<scf::ForOp>()) {
+        std::cout << "Found scf.for op\n";
+        forOp.dump();
+      }
+    }
   }
 };
 
