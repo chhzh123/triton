@@ -41,4 +41,15 @@ def TritonRewriteTensorPointer : Pass</*cli-arg*/"triton-rewrite-tensor-pointer"
   let dependentDialects = ["mlir::triton::TritonDialect"];
 }
 
+def TritonAnalyzeWarpSpecialization : Pass</*cli-arg*/"triton-analyze-warp-specialization", /*Op*/"mlir::ModuleOp"> {
+  let summary = "Analyzes the warp specialization pattern";
+  let description = [{
+    This pass analyzes the warp specialization pattern.
+  }];
+
+  let constructor = "mlir::triton::createWarpSpecializationAnalysisPass()";
+
+  let dependentDialects = ["mlir::triton::TritonDialect"];
+}
+
 #endif

@@ -148,7 +148,9 @@ class CUDABackend(BaseBackend):
         passes.common.add_cse(pm)
         passes.common.add_licm(pm)
         passes.common.add_symbol_dce(pm)
+        passes.ttir.add_analyze_warp_specialization(pm)
         pm.run(mod)
+        sys.exit()
         return mod
 
     @staticmethod
