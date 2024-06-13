@@ -16,16 +16,19 @@ using namespace mlir;
 
 class Traverser {
 public:
-  // void visitDotOp(Operation &op) {
+  void visitLoadOp(triton::LoadOp op) {
+    op.dump();
+  }
   void visitDotOp(triton::DotOp op) {
     op.dump();
-    op.getOperand(0).dump();
-    op.getOperand(1).dump();
+    visit(op.getOperand(0).getDefiningOp());
+    visit(op.getOperand(1).getDefiningOp());
   }
   void visit(Operation *op) {
-    // if (llvm::isa<triton::DotOp>(op)) {
     if (auto new_op = dyn_cast<triton::DotOp>(op)) {
       visitDotOp(new_op);
+    } else if (auto new_op = dyn_cast<triton::LoadOp>(op)) {
+      visitLoadOp(new_op);
     }
   }
 };
@@ -42,7 +45,6 @@ public:
     m.dump();
     auto t = Traverser();
     for (auto func : m.getOps<triton::FuncOp>()) {
-      std::cout << "Function: " << func.getName().str() << "\n";
       // find all scf.for ops
       for (auto forOp : func.getOps<scf::ForOp>()) {
         forOp.walk([&](Operation *op) {
