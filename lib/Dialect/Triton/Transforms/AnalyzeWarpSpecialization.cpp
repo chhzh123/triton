@@ -14,6 +14,22 @@ using namespace mlir;
 #define GEN_PASS_CLASSES
 #include "triton/Dialect/Triton/Transforms/Passes.h.inc"
 
+class Traverser {
+public:
+  // void visitDotOp(Operation &op) {
+  void visitDotOp(triton::DotOp op) {
+    op.dump();
+    op.getOperand(0).dump();
+    op.getOperand(1).dump();
+  }
+  void visit(Operation *op) {
+    // if (llvm::isa<triton::DotOp>(op)) {
+    if (auto new_op = dyn_cast<triton::DotOp>(op)) {
+      visitDotOp(new_op);
+    }
+  }
+};
+
 class WarpSpecializationAnalysisPass
     : public TritonAnalyzeWarpSpecializationBase<WarpSpecializationAnalysisPass> {
 
@@ -24,12 +40,14 @@ public:
 
     ModuleOp m = getOperation();
     m.dump();
+    auto t = Traverser();
     for (auto func : m.getOps<triton::FuncOp>()) {
       std::cout << "Function: " << func.getName().str() << "\n";
       // find all scf.for ops
       for (auto forOp : func.getOps<scf::ForOp>()) {
-        std::cout << "Found scf.for op\n";
-        forOp.dump();
+        forOp.walk([&](Operation *op) {
+          t.visit(op);
+        });
       }
     }
   }
