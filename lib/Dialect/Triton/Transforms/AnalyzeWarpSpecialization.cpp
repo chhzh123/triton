@@ -109,17 +109,9 @@ public:
       // get the block of operand 0 and then get the defining scf.for operation for this block
       auto blockArg = dyn_cast<BlockArgument>(op.getOperand(0));
       auto block = blockArg.getOwner();
-      auto forOp = block->getParentOp();
-      // blockArg.dump();
-      // std::cout << "argNum: " << blockArg.getArgNumber() << ", ";
-      // visit(dyn_cast<scf::ForOp>(forOp).getInitArgs()[blockArg.getArgNumber() - 2]);
-      // print out all the for op operands
-      std::cout << "\nfor(";
-      for (auto arg : forOp->getOperands()) {
-        arg.dump();
-      }
-      std::cout << ") \n";
-      visit(forOp->getOperand(blockArg.getArgNumber() + 1));
+      auto forOp = dyn_cast<scf::ForOp>(block->getParentOp());
+      // get initial value of the corresponding block argument
+      visit(forOp.getInitArgs()[blockArg.getArgNumber() - 1]); // arg0 is the loop variable
       std::cout << ")";
     }
   }
