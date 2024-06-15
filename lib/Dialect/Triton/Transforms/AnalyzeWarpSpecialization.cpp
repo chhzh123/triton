@@ -33,13 +33,9 @@ public:
     }
   }
   void visitSplat(triton::SplatOp op) {
-    if (mlir::isa<BlockArgument>(op.getOperand())) {
-      std::cout << "Splat(" << getSsaId(op.getOperand()) << ")";
-    } else {
-      std::cout << "Splat(";
-      visit(op.getOperand());
-      std::cout << ")";
-    }
+    // std::cout << "Splat(";
+    visit(op.getOperand());
+    // std::cout << ")";
   }
   void visitMakeRange(triton::MakeRangeOp op) {
     std::cout << "MakeRange(" << op.getStart() << ", " << op.getEnd() << ")";
@@ -59,9 +55,9 @@ public:
     std::cout << ")";
   }
   void visitExpandDims(triton::ExpandDimsOp op) {
-    std::cout << "ExpandDims(";
+    // std::cout << "ExpandDims(";
     visit(op.getOperand());
-    std::cout << ")";
+    // std::cout << ")";
   }
   void visitMul(arith::MulIOp op) {
     std::cout << "(";
@@ -71,9 +67,9 @@ public:
     std::cout << ")";
   }
   void visitBroadcast(triton::BroadcastOp op) {
-    std::cout << "Broadcast(";
+    // std::cout << "Broadcast(";
     visit(op.getOperand());
-    std::cout << ")";
+    // std::cout << ")";
   }
   void visitAdd(arith::AddIOp op) {
     std::cout << "(";
