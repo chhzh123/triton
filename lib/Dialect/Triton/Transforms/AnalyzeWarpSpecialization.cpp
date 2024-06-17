@@ -69,6 +69,13 @@ public:
     visit(op.getOperand(1));
     std::cout << ")";
   }
+  void visitDivF(arith::DivFOp op) {
+    std::cout << "(";
+    visit(op.getOperand(0));
+    std::cout << " / ";
+    visit(op.getOperand(1));
+    std::cout << ")";
+  }
   void visitExpandDims(triton::ExpandDimsOp op) {
     // std::cout << "ExpandDims(";
     visit(op.getOperand());
@@ -100,11 +107,23 @@ public:
     visit(op.getOperand(1));
     std::cout << ")";
   }
+  void visitSubF(arith::SubFOp op) {
+    std::cout << "(";
+    visit(op.getOperand(0));
+    std::cout << " - ";
+    visit(op.getOperand(1));
+    std::cout << ")";
+  }
   void visitMinSI(arith::MinSIOp op) {
     std::cout << "min(";
     visit(op.getOperand(0));
     std::cout << ", ";
     visit(op.getOperand(1));
+    std::cout << ")";
+  }
+  void visit(math::ExpOp op) {
+    std::cout << "exp(";
+    visit(op.getOperand());
     std::cout << ")";
   }
   void visitAddptr(triton::AddPtrOp op) {
@@ -127,7 +146,17 @@ public:
       // get initial value of the corresponding block argument (long expressions)
       // visit(forOp.getInitArgs()[blockArg.getArgNumber() - 1]); // arg0 is the loop variable
       std::cout << ")";
+    } else {
+      std::cout << "*(";
+      visit(op.getOperand(0));
+      std::cout << ")";
     }
+  }
+  void visitStoreOp(triton::StoreOp op) {
+    std::cout << "*(";
+    visit(op.getOperand(0));
+    std::cout << ") = ";
+    visit(op.getOperand(1));
   }
   void visitDotOp(triton::DotOp op) {
     std::cout << "DotOp: ";
@@ -135,6 +164,11 @@ public:
     std::cout << " x ";
     visit(op.getOperand(1));
     std::cout << "\n";
+  }
+  void visitReduceOp(triton::ReduceOp op) {
+    std::cout << "Reduce(";
+    visit(op.getOperand(0));
+    std::cout << ")";
   }
   void visitYieldOp(scf::YieldOp op) {
     // std::cout << "YieldOp: ";
@@ -157,8 +191,12 @@ public:
         visitConstantOp(new_op);
       } else if (auto new_op = dyn_cast<triton::DotOp>(op)) {
         visitDotOp(new_op);
+      } else if (auto new_op = dyn_cast<math::ExpOp>(op)) {
+        visit(new_op);
       } else if (auto new_op = dyn_cast<triton::LoadOp>(op)) {
         visitLoadOp(new_op);
+      } else if (auto new_op = dyn_cast<triton::StoreOp>(op)) {
+        visitStoreOp(new_op);
       } else if (auto new_op = dyn_cast<triton::AddPtrOp>(op)) {
         visitAddptr(new_op);
       } else if (auto new_op = dyn_cast<triton::SplatOp>(op)) {
@@ -171,10 +209,14 @@ public:
         visitAdd(new_op);
       } else if (auto new_op = dyn_cast<arith::SubIOp>(op)) {
         visitSub(new_op);
+      } else if (auto new_op = dyn_cast<arith::SubFOp>(op)) {
+        visitSubF(new_op);
       } else if (auto new_op = dyn_cast<arith::MulIOp>(op)) {
         visitMul(new_op);
       } else if (auto new_op = dyn_cast<arith::DivSIOp>(op)) {
         visitDivSI(new_op);
+      } else if (auto new_op = dyn_cast<arith::DivFOp>(op)) {
+        visitDivF(new_op);
       } else if (auto new_op = dyn_cast<arith::RemSIOp>(op)) {
         visitRemSI(new_op);
       } else if (auto new_op = dyn_cast<arith::MinSIOp>(op)) {
@@ -183,6 +225,10 @@ public:
         visitMakeRange(new_op);
       } else if (auto new_op = dyn_cast<scf::YieldOp>(op)) {
         visitYieldOp(new_op);
+      } else if (auto new_op = dyn_cast<triton::ReduceOp>(op)) {
+        visitReduceOp(new_op);
+      } else {
+        std::cout << "Unknown op: " << op->getName().getStringRef().str() << "\n";
       }
     }
   }
@@ -207,8 +253,14 @@ public:
       // find all scf.for ops
       for (auto forOp : func.getOps<scf::ForOp>()) {
         auto t = Traverser(forOp);
-        forOp.walk([&](scf::YieldOp op) {
-          t.visitYieldOp(op);
+        // forOp.walk([&](scf::YieldOp op) {
+        //   t.visitYieldOp(op);
+        // });
+        // forOp.walk([&](triton::LoadOp op) {
+        //   t.visitLoadOp(op);
+        // });
+        forOp.walk([&](triton::StoreOp op) {
+          t.visitStoreOp(op);
         });
       }
     }
