@@ -24,12 +24,27 @@ std::string getSsaId(Value value) {
 
 class Traverser {
 public:
+  Traverser(scf::ForOp op) {
+    this->topForOp = op;
+  }
   void visitProgramIdOp(triton::GetProgramIdOp op) {
     std::cout << "pid";
   }
   void visitConstantOp(arith::ConstantOp op) {
     if (mlir::isa<mlir::IntegerType>(op.getType())) {
       std::cout << std::to_string(mlir::cast<IntegerAttr>(op.getValue()).getInt());
+    } else if (mlir::isa<mlir::FloatType>(op.getType())) {
+      std::cout << std::to_string(mlir::cast<FloatAttr>(op.getValue()).getValueAsDouble());
+    // tensor type
+    } else if (mlir::isa<mlir::RankedTensorType>(op.getType())) {
+      auto tensorType = mlir::cast<mlir::RankedTensorType>(op.getType());
+      auto tensorValue = mlir::cast<mlir::DenseElementsAttr>(op.getValue());
+      // std::cout << "[";
+      for (auto it : tensorValue.getValues<IntegerAttr>()) {
+        std::cout << it.getInt();// << ", ";
+        break;
+      }
+      // std::cout << "]";
     }
   }
   void visitSplat(triton::SplatOp op) {
@@ -96,6 +111,8 @@ public:
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " + ";
+    if (this->is_iv)
+      std::cout << getSsaId(this->topForOp.getInductionVar()) << " * ";
     visit(op.getOperand(1));
     std::cout << ")";
   }
@@ -106,8 +123,9 @@ public:
       auto blockArg = dyn_cast<BlockArgument>(op.getOperand(0));
       auto block = blockArg.getOwner();
       auto forOp = dyn_cast<scf::ForOp>(block->getParentOp());
-      // get initial value of the corresponding block argument
-      visit(forOp.getInitArgs()[blockArg.getArgNumber() - 1]); // arg0 is the loop variable
+      visit(blockArg);
+      // get initial value of the corresponding block argument (long expressions)
+      // visit(forOp.getInitArgs()[blockArg.getArgNumber() - 1]); // arg0 is the loop variable
       std::cout << ")";
     }
   }
@@ -117,6 +135,16 @@ public:
     std::cout << " x ";
     visit(op.getOperand(1));
     std::cout << "\n";
+  }
+  void visitYieldOp(scf::YieldOp op) {
+    // std::cout << "YieldOp: ";
+    is_iv = true;
+    for (auto operand : op.getOperands()) {
+      std::cout << getSsaId(operand) << " = ";
+      visit(operand);
+      std::cout << "\n";
+    }
+    is_iv = false;
   }
   void visit(Value value) {
     if (auto blockArg = dyn_cast<BlockArgument>(value)) {
@@ -153,9 +181,14 @@ public:
         visitMinSI(new_op);
       } else if (auto new_op = dyn_cast<triton::MakeRangeOp>(op)) {
         visitMakeRange(new_op);
+      } else if (auto new_op = dyn_cast<scf::YieldOp>(op)) {
+        visitYieldOp(new_op);
       }
     }
   }
+private:
+  scf::ForOp topForOp;
+  bool is_iv = false;
 };
 
 class WarpSpecializationAnalysisPass
@@ -168,14 +201,14 @@ public:
 
     ModuleOp m = getOperation();
     m.dump();
-    auto t = Traverser();
     for (auto func : m.getOps<triton::FuncOp>()) {
       // debug
       // GraphDumper().dumpToFile(func, "func.dot");
       // find all scf.for ops
       for (auto forOp : func.getOps<scf::ForOp>()) {
-        forOp.walk([&](triton::DotOp op) {
-          t.visit(op);
+        auto t = Traverser(forOp);
+        forOp.walk([&](scf::YieldOp op) {
+          t.visitYieldOp(op);
         });
       }
     }
