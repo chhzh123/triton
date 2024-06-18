@@ -121,7 +121,7 @@ public:
     visit(op.getOperand(1));
     std::cout << ")";
   }
-  void visit(math::ExpOp op) {
+  void visitExpOp(math::ExpOp op) {
     std::cout << "exp(";
     visit(op.getOperand());
     std::cout << ")";
@@ -180,11 +180,11 @@ public:
     }
     is_iv = false;
   }
-  void visit(Value value) {
-    if (auto blockArg = dyn_cast<BlockArgument>(value)) {
-      std::cout << getSsaId(blockArg);
-    } else {
-      auto op = value.getDefiningOp();
+  void visit(Operation* op) {
+      if (this->visited.count(op) > 0) {
+        return;
+      }
+      visited.insert(op);
       if (auto new_op = dyn_cast<triton::GetProgramIdOp>(op)) {
         visitProgramIdOp(new_op);
       } else if (auto new_op = dyn_cast<arith::ConstantOp>(op)) {
@@ -192,7 +192,7 @@ public:
       } else if (auto new_op = dyn_cast<triton::DotOp>(op)) {
         visitDotOp(new_op);
       } else if (auto new_op = dyn_cast<math::ExpOp>(op)) {
-        visit(new_op);
+        visitExpOp(new_op);
       } else if (auto new_op = dyn_cast<triton::LoadOp>(op)) {
         visitLoadOp(new_op);
       } else if (auto new_op = dyn_cast<triton::StoreOp>(op)) {
@@ -230,11 +230,20 @@ public:
       } else {
         std::cout << "Unknown op: " << op->getName().getStringRef().str() << "\n";
       }
+  }
+  void visit(Value value) {
+    if (auto blockArg = dyn_cast<BlockArgument>(value)) {
+      std::cout << getSsaId(blockArg);
+    } else {
+      auto op = value.getDefiningOp();
+      // check if the operation has been visited
+      visit(op);
     }
   }
 private:
   scf::ForOp topForOp;
   bool is_iv = false;
+  DenseSet<Operation *> visited;
 };
 
 class WarpSpecializationAnalysisPass
@@ -250,18 +259,11 @@ public:
     for (auto func : m.getOps<triton::FuncOp>()) {
       // debug
       // GraphDumper().dumpToFile(func, "func.dot");
-      // find all scf.for ops
       for (auto forOp : func.getOps<scf::ForOp>()) {
         auto t = Traverser(forOp);
-        // forOp.walk([&](scf::YieldOp op) {
-        //   t.visitYieldOp(op);
-        // });
-        // forOp.walk([&](triton::LoadOp op) {
-        //   t.visitLoadOp(op);
-        // });
-        forOp.walk([&](triton::StoreOp op) {
-          t.visitStoreOp(op);
-        });
+        for (auto op = forOp.getBody()->getOperations().rbegin(); op != forOp.getBody()->getOperations().rend(); ++op) {
+          t.visit(&(*op));
+        }
       }
     }
   }
