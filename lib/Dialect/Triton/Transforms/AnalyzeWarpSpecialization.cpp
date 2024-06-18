@@ -22,6 +22,29 @@ std::string getSsaId(Value value) {
   return str;
 }
 
+std::string getCmpPredicate(arith::CmpIOp op) {
+  switch (op.getPredicate()) {
+  case arith::CmpIPredicate::eq:
+    return "==";
+  case arith::CmpIPredicate::ne:
+    return "!=";
+  case arith::CmpIPredicate::slt:
+  case arith::CmpIPredicate::ult:
+    return "<";
+  case arith::CmpIPredicate::sle:
+  case arith::CmpIPredicate::ule:
+    return "<=";
+  case arith::CmpIPredicate::sgt:
+  case arith::CmpIPredicate::ugt:
+    return ">";
+  case arith::CmpIPredicate::sge:
+  case arith::CmpIPredicate::uge:
+    return ">=";
+  }
+  assert(false && "unsupported compare type");
+  return "";
+}
+
 class Traverser {
 public:
   Traverser(scf::ForOp op) {
@@ -126,6 +149,13 @@ public:
     visit(op.getOperand());
     std::cout << ")";
   }
+  void visitCmpIOp(arith::CmpIOp op) {
+    std::cout << "(";
+    visit(op.getOperand(0));
+    std::cout << " " << getCmpPredicate(op) << " ";
+    visit(op.getOperand(1));
+    std::cout << ")";
+  }
   void visitAddptr(triton::AddPtrOp op) {
     std::cout << "(";
     visit(op.getOperand(0));
@@ -159,7 +189,6 @@ public:
     visit(op.getOperand(1));
   }
   void visitDotOp(triton::DotOp op) {
-    std::cout << "DotOp: ";
     visit(op.getOperand(0));
     std::cout << " x ";
     visit(op.getOperand(1));
@@ -171,7 +200,6 @@ public:
     std::cout << ")";
   }
   void visitYieldOp(scf::YieldOp op) {
-    // std::cout << "YieldOp: ";
     is_iv = true;
     for (auto operand : op.getOperands()) {
       std::cout << getSsaId(operand) << " = ";
@@ -221,6 +249,8 @@ public:
         visitRemSI(new_op);
       } else if (auto new_op = dyn_cast<arith::MinSIOp>(op)) {
         visitMinSI(new_op);
+      } else if (auto new_op = dyn_cast<arith::CmpIOp>(op)) {
+        visitCmpIOp(new_op);
       } else if (auto new_op = dyn_cast<triton::MakeRangeOp>(op)) {
         visitMakeRange(new_op);
       } else if (auto new_op = dyn_cast<scf::YieldOp>(op)) {
