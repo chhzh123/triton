@@ -104,26 +104,26 @@ public:
     visit(op.getOperand());
     // std::cout << ")";
   }
-  void visitMul(arith::MulIOp op) {
-    std::cout << "(";
-    visit(op.getOperand(0));
-    std::cout << " * ";
-    visit(op.getOperand(1));
-    std::cout << ")";
-  }
   void visitBroadcast(triton::BroadcastOp op) {
     // std::cout << "Broadcast(";
     visit(op.getOperand());
     // std::cout << ")";
   }
-  void visitAdd(arith::AddIOp op) {
+  void visitAddI(arith::AddIOp op) {
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " + ";
     visit(op.getOperand(1));
     std::cout << ")";
   }
-  void visitSub(arith::SubIOp op) {
+  void visitAddF(arith::AddFOp op) {
+    std::cout << "(";
+    visit(op.getOperand(0));
+    std::cout << " + ";
+    visit(op.getOperand(1));
+    std::cout << ")";
+  }
+  void visitSubI(arith::SubIOp op) {
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " - ";
@@ -137,6 +137,20 @@ public:
     visit(op.getOperand(1));
     std::cout << ")";
   }
+  void visitMulI(arith::MulIOp op) {
+    std::cout << "(";
+    visit(op.getOperand(0));
+    std::cout << " * ";
+    visit(op.getOperand(1));
+    std::cout << ")";
+  }
+  void visitMulF(arith::MulFOp op) {
+    std::cout << "(";
+    visit(op.getOperand(0));
+    std::cout << " * ";
+    visit(op.getOperand(1));
+    std::cout << ")";
+  }
   void visitMinSI(arith::MinSIOp op) {
     std::cout << "min(";
     visit(op.getOperand(0));
@@ -144,8 +158,23 @@ public:
     visit(op.getOperand(1));
     std::cout << ")";
   }
+  void visitExtSI(arith::ExtSIOp op) {
+    // std::cout << "ExtSI(";
+    visit(op.getOperand());
+    // std::cout << ")";
+  }
+  void visitTruncFOp(arith::TruncFOp op) {
+    // std::cout << "TruncF(";
+    visit(op.getOperand());
+    // std::cout << ")";
+  }
   void visitExpOp(math::ExpOp op) {
     std::cout << "exp(";
+    visit(op.getOperand());
+    std::cout << ")";
+  }
+  void visitExp2Op(math::Exp2Op op) {
+    std::cout << "exp2(";
     visit(op.getOperand());
     std::cout << ")";
   }
@@ -154,6 +183,22 @@ public:
     visit(op.getOperand(0));
     std::cout << " " << getCmpPredicate(op) << " ";
     visit(op.getOperand(1));
+    std::cout << ")";
+  }
+  void visitMaxNumF(arith::MaxNumFOp op) {
+    std::cout << "max(";
+    visit(op.getOperand(0));
+    std::cout << ", ";
+    visit(op.getOperand(1));
+    std::cout << ")";
+  }
+  void visitSelectOp(arith::SelectOp op) {
+    std::cout << "Select(";
+    visit(op.getOperand(0));
+    std::cout << ", ";
+    visit(op.getOperand(1));
+    std::cout << ", ";
+    visit(op.getOperand(2));
     std::cout << ")";
   }
   void visitAddptr(triton::AddPtrOp op) {
@@ -221,6 +266,8 @@ public:
         visitDotOp(new_op);
       } else if (auto new_op = dyn_cast<math::ExpOp>(op)) {
         visitExpOp(new_op);
+      } else if (auto new_op = dyn_cast<math::Exp2Op>(op)) {
+        visitExp2Op(new_op);
       } else if (auto new_op = dyn_cast<triton::LoadOp>(op)) {
         visitLoadOp(new_op);
       } else if (auto new_op = dyn_cast<triton::StoreOp>(op)) {
@@ -234,23 +281,35 @@ public:
       } else if (auto new_op = dyn_cast<triton::ExpandDimsOp>(op)) {
         visitExpandDims(new_op);
       } else if (auto new_op = dyn_cast<arith::AddIOp>(op)) {
-        visitAdd(new_op);
+        visitAddI(new_op);
+      } else if (auto new_op = dyn_cast<arith::AddFOp>(op)) {
+        visitAddF(new_op);
       } else if (auto new_op = dyn_cast<arith::SubIOp>(op)) {
-        visitSub(new_op);
+        visitSubI(new_op);
       } else if (auto new_op = dyn_cast<arith::SubFOp>(op)) {
         visitSubF(new_op);
       } else if (auto new_op = dyn_cast<arith::MulIOp>(op)) {
-        visitMul(new_op);
+        visitMulI(new_op);
+      } else if (auto new_op = dyn_cast<arith::MulFOp>(op)) {
+        visitMulF(new_op);
       } else if (auto new_op = dyn_cast<arith::DivSIOp>(op)) {
         visitDivSI(new_op);
       } else if (auto new_op = dyn_cast<arith::DivFOp>(op)) {
         visitDivF(new_op);
       } else if (auto new_op = dyn_cast<arith::RemSIOp>(op)) {
         visitRemSI(new_op);
+      } else if (auto new_op = dyn_cast<arith::ExtSIOp>(op)) {
+        visitExtSI(new_op);
+      } else if (auto new_op = dyn_cast<arith::TruncFOp>(op)) {
+        visitTruncFOp(new_op);
       } else if (auto new_op = dyn_cast<arith::MinSIOp>(op)) {
         visitMinSI(new_op);
       } else if (auto new_op = dyn_cast<arith::CmpIOp>(op)) {
         visitCmpIOp(new_op);
+      } else if (auto new_op = dyn_cast<arith::MaxNumFOp>(op)) {
+        visitMaxNumF(new_op);
+      } else if (auto new_op = dyn_cast<arith::SelectOp>(op)) {
+        visitSelectOp(new_op);
       } else if (auto new_op = dyn_cast<triton::MakeRangeOp>(op)) {
         visitMakeRange(new_op);
       } else if (auto new_op = dyn_cast<scf::YieldOp>(op)) {
