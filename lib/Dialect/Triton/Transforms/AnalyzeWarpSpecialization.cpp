@@ -71,6 +71,8 @@ public:
     }
   }
   void visitSplat(triton::SplatOp op) {
+    appendNode(op.getResult(), "Splat");
+    appendEdge(op.getOperand(), op.getResult());
     // std::cout << "Splat(";
     visit(op.getOperand());
     // std::cout << ")";
@@ -93,6 +95,9 @@ public:
     std::cout << ")";
   }
   void visitDivF(arith::DivFOp op) {
+    appendNode(op.getResult(), "DivF");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " / ";
@@ -131,6 +136,9 @@ public:
     std::cout << ")";
   }
   void visitSubF(arith::SubFOp op) {
+    appendNode(op.getResult(), "SubF");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " - ";
@@ -169,11 +177,15 @@ public:
     // std::cout << ")";
   }
   void visitExpOp(math::ExpOp op) {
+    appendNode(op.getResult(), "Exp");
+    appendEdge(op.getOperand(), op.getResult());
     std::cout << "exp(";
     visit(op.getOperand());
     std::cout << ")";
   }
   void visitExp2Op(math::Exp2Op op) {
+    appendNode(op.getResult(), "Exp2");
+    appendEdge(op.getOperand(), op.getResult());
     std::cout << "exp2(";
     visit(op.getOperand());
     std::cout << ")";
@@ -202,6 +214,8 @@ public:
     std::cout << ")";
   }
   void visitAddptr(triton::AddPtrOp op) {
+    appendNode(op.getResult(), "AddPtr");
+    appendEdge(op.getOperand(0), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " + ";
@@ -212,9 +226,9 @@ public:
   }
   void visitLoadOp(triton::LoadOp op) {
     appendNode(op.getResult(), "Load");
+    appendEdge(op.getOperand(0), op.getResult());
     if (mlir::isa<BlockArgument>(op.getOperand(0))) {
       appendNode(op.getOperand(0), "BlockArg");
-      appendEdge(op.getResult(), op.getOperand(0));
       std::cout << "*(";
       // get the block of operand 0 and then get the defining scf.for operation for this block
       auto blockArg = dyn_cast<BlockArgument>(op.getOperand(0));
@@ -225,13 +239,14 @@ public:
       // visit(forOp.getInitArgs()[blockArg.getArgNumber() - 1]); // arg0 is the loop variable
       std::cout << ")";
     } else {
-      appendEdge(op.getResult(), op.getOperand(0));
       std::cout << "*(";
       visit(op.getOperand(0));
       std::cout << ")";
     }
   }
   void visitStoreOp(triton::StoreOp op) {
+    appendNode(op.getOperand(0), "Store");
+    appendEdge(op.getOperand(1), op.getOperand(0));
     std::cout << "*(";
     visit(op.getOperand(0));
     std::cout << ") = ";
@@ -246,6 +261,8 @@ public:
     visit(op.getOperand(1));
   }
   void visitReduceOp(triton::ReduceOp op) {
+    appendNode(*(op.getResult().begin()), "Reduce");
+    appendEdge(op.getOperand(0), *(op.getResult().begin()));
     std::cout << "Reduce(";
     visit(op.getOperand(0));
     std::cout << ")";
