@@ -211,7 +211,10 @@ public:
     std::cout << ")";
   }
   void visitLoadOp(triton::LoadOp op) {
+    appendNode(op.getResult(), "Load");
     if (mlir::isa<BlockArgument>(op.getOperand(0))) {
+      appendNode(op.getOperand(0), "BlockArg");
+      appendEdge(op.getResult(), op.getOperand(0));
       std::cout << "*(";
       // get the block of operand 0 and then get the defining scf.for operation for this block
       auto blockArg = dyn_cast<BlockArgument>(op.getOperand(0));
@@ -222,6 +225,7 @@ public:
       // visit(forOp.getInitArgs()[blockArg.getArgNumber() - 1]); // arg0 is the loop variable
       std::cout << ")";
     } else {
+      appendEdge(op.getResult(), op.getOperand(0));
       std::cout << "*(";
       visit(op.getOperand(0));
       std::cout << ")";
@@ -234,6 +238,9 @@ public:
     visit(op.getOperand(1));
   }
   void visitDotOp(triton::DotOp op) {
+    appendNode(op.getResult(), "Dot");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     visit(op.getOperand(0));
     std::cout << " x ";
     visit(op.getOperand(1));
@@ -328,10 +335,21 @@ public:
       visit(op);
     }
   }
+  void appendNode(Value op, std::string name) {
+    nodestr += "  \"" + getSsaId(op) + "\" [label = \"" + name + "(" + getSsaId(op) + ")\"];\n";
+  }
+  void appendEdge(Value src, Value dest) {
+    edgestr += "  \"" + getSsaId(src) + "\" -> \"" + getSsaId(dest) + "\";\n";
+  }
+  std::string getDag() {
+    return "digraph G {\n" + nodestr + "\n" + edgestr + "}\n";
+  }
 private:
   scf::ForOp topForOp;
   bool is_iv = false;
   DenseSet<Operation *> visited;
+  std::string nodestr = "";
+  std::string edgestr = "";
 };
 
 class WarpSpecializationAnalysisPass
@@ -354,6 +372,7 @@ public:
             t.visit(&(*op));
           }
         }
+        std::cout << t.getDag();
       }
     }
   }
