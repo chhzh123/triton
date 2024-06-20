@@ -237,7 +237,6 @@ public:
     visit(op.getOperand(0));
     std::cout << " x ";
     visit(op.getOperand(1));
-    std::cout << "\n";
   }
   void visitReduceOp(triton::ReduceOp op) {
     std::cout << "Reduce(";
@@ -351,7 +350,9 @@ public:
       for (auto forOp : func.getOps<scf::ForOp>()) {
         auto t = Traverser(forOp);
         for (auto op = forOp.getBody()->getOperations().rbegin(); op != forOp.getBody()->getOperations().rend(); ++op) {
-          t.visit(&(*op));
+          if (llvm::isa<scf::YieldOp, triton::StoreOp>(*op)) {
+            t.visit(&(*op));
+          }
         }
       }
     }
