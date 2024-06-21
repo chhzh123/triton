@@ -54,6 +54,7 @@ public:
     std::cout << "pid";
   }
   void visitConstantOp(arith::ConstantOp op) {
+    appendNode(op.getResult(), "Constant");
     if (mlir::isa<mlir::IntegerType>(op.getType())) {
       std::cout << std::to_string(mlir::cast<IntegerAttr>(op.getValue()).getInt());
     } else if (mlir::isa<mlir::FloatType>(op.getType())) {
@@ -216,16 +217,18 @@ public:
   void visitAddptr(triton::AddPtrOp op) {
     appendNode(op.getResult(), "AddPtr");
     appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " + ";
-    if (this->is_iv)
-      std::cout << getSsaId(this->topForOp.getInductionVar()) << " * ";
+    // if (this->is_iv)
+    //   std::cout << getSsaId(this->topForOp.getInductionVar()) << " * ";
     visit(op.getOperand(1));
     std::cout << ")";
   }
   void visitLoadOp(triton::LoadOp op) {
-    appendNode(op.getResult(), "Load");
+    appendNode(op.getResult(), "Load", true);
+    is_iter = true;
     appendEdge(op.getOperand(0), op.getResult());
     if (mlir::isa<BlockArgument>(op.getOperand(0))) {
       appendNode(op.getOperand(0), "BlockArg");
@@ -243,17 +246,18 @@ public:
       visit(op.getOperand(0));
       std::cout << ")";
     }
+    is_iter = false;
   }
   void visitStoreOp(triton::StoreOp op) {
-    appendNode(op.getOperand(0), "Store");
-    appendEdge(op.getOperand(1), op.getOperand(0));
+    // appendNode(op.getOperand(0), "Store", true);
+    // appendEdge(op.getOperand(1), op.getOperand(0));
     std::cout << "*(";
     visit(op.getOperand(0));
     std::cout << ") = ";
     visit(op.getOperand(1));
   }
   void visitDotOp(triton::DotOp op) {
-    appendNode(op.getResult(), "Dot");
+    appendNode(op.getResult(), "Dot", true);
     appendEdge(op.getOperand(0), op.getResult());
     appendEdge(op.getOperand(1), op.getResult());
     visit(op.getOperand(0));
@@ -261,20 +265,18 @@ public:
     visit(op.getOperand(1));
   }
   void visitReduceOp(triton::ReduceOp op) {
-    appendNode(*(op.getResult().begin()), "Reduce");
+    appendNode(*(op.getResult().begin()), "Reduce", true);
     appendEdge(op.getOperand(0), *(op.getResult().begin()));
     std::cout << "Reduce(";
     visit(op.getOperand(0));
     std::cout << ")";
   }
   void visitYieldOp(scf::YieldOp op) {
-    is_iv = true;
     for (auto operand : op.getOperands()) {
       std::cout << getSsaId(operand) << " = ";
       visit(operand);
       std::cout << "\n";
     }
-    is_iv = false;
   }
   void visit(Operation* op) {
       if (this->visited.count(op) > 0) {
@@ -352,18 +354,29 @@ public:
       visit(op);
     }
   }
-  void appendNode(Value op, std::string name) {
-    nodestr += "  \"" + getSsaId(op) + "\" [label = \"" + name + "(" + getSsaId(op) + ")\"];\n";
+  void appendNode(Value op, std::string name, bool is_tile_statement = false) {
+    // if (is_iter && (name != "AddPtr" && name != "BlockArg"))
+    //   return;
+    nodestr += "  \"" + getSsaId(op) + "\" [label = \"" + getSsaId(op) + " " + name + "\"";
+    if (is_tile_statement)
+      nodestr += ", shape = \"box\"";
+    else
+      nodestr += ", shape = \"ellipse\"";
+    nodestr += "];\n";
   }
   void appendEdge(Value src, Value dest) {
-    edgestr += "  \"" + getSsaId(src) + "\" -> \"" + getSsaId(dest) + "\";\n";
+    edgestr += "  \"" + getSsaId(src) + "\" -> \"" + getSsaId(dest) + "\"";
+    if (this->is_iter)
+      edgestr += "[color = \"orange\"]\n";
+    else
+      edgestr += "\n";
   }
   std::string getDag() {
     return "digraph G {\n" + nodestr + "\n" + edgestr + "}\n";
   }
 private:
   scf::ForOp topForOp;
-  bool is_iv = false;
+  bool is_iter = false;
   DenseSet<Operation *> visited;
   std::string nodestr = "";
   std::string edgestr = "";
