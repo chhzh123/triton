@@ -64,9 +64,19 @@ public:
       auto tensorType = mlir::cast<mlir::RankedTensorType>(op.getType());
       auto tensorValue = mlir::cast<mlir::DenseElementsAttr>(op.getValue());
       // std::cout << "[";
-      for (auto it : tensorValue.getValues<IntegerAttr>()) {
-        std::cout << it.getInt();// << ", ";
-        break;
+      // if values are integers
+      if (mlir::isa<IntegerType>(tensorType.getElementType())) {
+        for (auto it : tensorValue.getValues<IntegerAttr>()) {
+          std::cout << it.getInt();// << ", ";
+          break;
+        }
+      }
+      // if values are floats
+      else if (mlir::isa<FloatType>(tensorType.getElementType())) {
+        for (auto it : tensorValue.getValues<FloatAttr>()) {
+          std::cout << it.getValueAsDouble();// << ", ";
+          break;
+        }
       }
       // std::cout << "]";
     }
@@ -79,9 +89,13 @@ public:
     // std::cout << ")";
   }
   void visitMakeRange(triton::MakeRangeOp op) {
+    appendNode(op.getResult(), "MakeRange");
     std::cout << "MakeRange(" << op.getStart() << ", " << op.getEnd() << ")";
   }
   void visitRemSI(arith::RemSIOp op) {
+    appendNode(op.getResult(), "RemSI");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " % ";
@@ -89,6 +103,9 @@ public:
     std::cout << ")";
   }
   void visitDivSI(arith::DivSIOp op) {
+    appendNode(op.getResult(), "DivSI");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " / ";
@@ -106,16 +123,23 @@ public:
     std::cout << ")";
   }
   void visitExpandDims(triton::ExpandDimsOp op) {
+    appendNode(op.getResult(), "ExpandDims");
+    appendEdge(op.getOperand(), op.getResult());
     // std::cout << "ExpandDims(";
     visit(op.getOperand());
     // std::cout << ")";
   }
   void visitBroadcast(triton::BroadcastOp op) {
+    appendNode(op.getResult(), "Broadcast");
+    appendEdge(op.getOperand(), op.getResult());
     // std::cout << "Broadcast(";
     visit(op.getOperand());
     // std::cout << ")";
   }
   void visitAddI(arith::AddIOp op) {
+    appendNode(op.getResult(), "AddI");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " + ";
@@ -123,6 +147,9 @@ public:
     std::cout << ")";
   }
   void visitAddF(arith::AddFOp op) {
+    appendNode(op.getResult(), "AddF");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " + ";
@@ -130,6 +157,9 @@ public:
     std::cout << ")";
   }
   void visitSubI(arith::SubIOp op) {
+    appendNode(op.getResult(), "SubI");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " - ";
@@ -167,6 +197,9 @@ public:
     std::cout << ")";
   }
   void visitMinSI(arith::MinSIOp op) {
+    appendNode(op.getResult(), "MinSI");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "min(";
     visit(op.getOperand(0));
     std::cout << ", ";
@@ -174,11 +207,15 @@ public:
     std::cout << ")";
   }
   void visitExtSI(arith::ExtSIOp op) {
+    appendNode(op.getResult(), "ExtSI");
+    appendEdge(op.getOperand(), op.getResult());
     // std::cout << "ExtSI(";
     visit(op.getOperand());
     // std::cout << ")";
   }
   void visitTruncFOp(arith::TruncFOp op) {
+    appendNode(op.getResult(), "TruncF");
+    appendEdge(op.getOperand(), op.getResult());
     // std::cout << "TruncF(";
     visit(op.getOperand());
     // std::cout << ")";
@@ -198,6 +235,9 @@ public:
     std::cout << ")";
   }
   void visitCmpIOp(arith::CmpIOp op) {
+    appendNode(op.getResult(), "CmpI");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " " << getCmpPredicate(op) << " ";
@@ -205,6 +245,9 @@ public:
     std::cout << ")";
   }
   void visitMaxNumF(arith::MaxNumFOp op) {
+    appendNode(op.getResult(), "MaxNumF");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "max(";
     visit(op.getOperand(0));
     std::cout << ", ";
@@ -212,6 +255,9 @@ public:
     std::cout << ")";
   }
   void visitSelectOp(arith::SelectOp op) {
+    appendNode(op.getResult(), "Select");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "Select(";
     visit(op.getOperand(0));
     std::cout << ", ";
@@ -375,6 +421,8 @@ public:
       nodestr += ", shape = \"box\"";
     else
       nodestr += ", shape = \"ellipse\"";
+    if (name == "Load")
+      nodestr += ", color = \"blue\"";
     nodestr += "];\n";
   }
   void appendEdge(Value src, Value dest, bool is_store = false) {
