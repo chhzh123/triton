@@ -147,6 +147,9 @@ public:
     std::cout << ")";
   }
   void visitMulI(arith::MulIOp op) {
+    appendNode(op.getResult(), "MulI");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " * ";
@@ -154,6 +157,9 @@ public:
     std::cout << ")";
   }
   void visitMulF(arith::MulFOp op) {
+    appendNode(op.getResult(), "MulF");
+    appendEdge(op.getOperand(0), op.getResult());
+    appendEdge(op.getOperand(1), op.getResult());
     std::cout << "(";
     visit(op.getOperand(0));
     std::cout << " * ";
@@ -215,6 +221,7 @@ public:
     std::cout << ")";
   }
   void visitAddptr(triton::AddPtrOp op) {
+    is_iter = true;
     appendNode(op.getResult(), "AddPtr");
     appendEdge(op.getOperand(0), op.getResult());
     appendEdge(op.getOperand(1), op.getResult());
@@ -225,6 +232,7 @@ public:
     //   std::cout << getSsaId(this->topForOp.getInductionVar()) << " * ";
     visit(op.getOperand(1));
     std::cout << ")";
+    is_iter = false;
   }
   void visitLoadOp(triton::LoadOp op) {
     appendNode(op.getResult(), "Load", true);
@@ -249,11 +257,13 @@ public:
     is_iter = false;
   }
   void visitStoreOp(triton::StoreOp op) {
-    // appendNode(op.getOperand(0), "Store", true);
-    // appendEdge(op.getOperand(1), op.getOperand(0));
+    appendNode(op.getOperand(0), "Store", true);
+    appendEdge(op.getOperand(1), op.getOperand(0), true);
+    is_iter = true;
     std::cout << "*(";
     visit(op.getOperand(0));
     std::cout << ") = ";
+    is_iter = false;
     visit(op.getOperand(1));
   }
   void visitDotOp(triton::DotOp op) {
@@ -357,15 +367,21 @@ public:
   void appendNode(Value op, std::string name, bool is_tile_statement = false) {
     // if (is_iter && (name != "AddPtr" && name != "BlockArg"))
     //   return;
-    nodestr += "  \"" + getSsaId(op) + "\" [label = \"" + getSsaId(op) + " " + name + "\"";
+    std::string id = getSsaId(op);
+    if (name == "Store")
+      id += "-S";
+    nodestr += "  \"" + id + "\" [label = \"" + id + " " + name + "\"";
     if (is_tile_statement)
       nodestr += ", shape = \"box\"";
     else
       nodestr += ", shape = \"ellipse\"";
     nodestr += "];\n";
   }
-  void appendEdge(Value src, Value dest) {
-    edgestr += "  \"" + getSsaId(src) + "\" -> \"" + getSsaId(dest) + "\"";
+  void appendEdge(Value src, Value dest, bool is_store = false) {
+    std::string dest_id = getSsaId(dest);
+    if (is_store)
+      dest_id += "-S";
+    edgestr += "  \"" + getSsaId(src) + "\" -> \"" + dest_id + "\"";
     if (this->is_iter)
       edgestr += "[color = \"orange\"]\n";
     else
