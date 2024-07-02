@@ -10,6 +10,7 @@
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/Triton/Transforms/Passes.h"
 #include "triton/Dialect/TritonGPU/Transforms/Utility.h"
+#include "triton/Conversion/TritonGPUToLLVM/Utility.h"
 
 using namespace mlir;
 
@@ -430,6 +431,28 @@ public:
     if (is_store)
       dest_id += "-S";
     edgestr += "  \"" + src_id + "\" -> \"" + dest_id + "\"";
+    if (auto tensorType = dyn_cast<RankedTensorType>(src.getType())) {
+      // need to print out the shape value one by one
+      src_id += " : ";
+      for (int i = 0; i < tensorType.getRank(); i++) {
+        src_id += std::to_string(tensorType.getShape()[i]);
+        src_id += "x";
+      }
+      if (tensorType.getElementType().isInteger(32))
+        src_id += "i32";
+      else if (tensorType.getElementType().isInteger(64))
+        src_id += "i64";
+      else if (tensorType.getElementType().isF16())
+        src_id += "f16";
+      else if (tensorType.getElementType().isF32())
+        src_id += "f32";
+      else if (tensorType.getElementType().isF64())
+        src_id += "f64";
+      else if (type::isFloat(tensorType.getElementType()))
+        src_id += "f?";
+      else
+        src_id += "?";
+    }
     if (!is_iter.empty())
       edgestr += "[color = \"orange\", label = \"" + src_id + "\"]\n";
     else
