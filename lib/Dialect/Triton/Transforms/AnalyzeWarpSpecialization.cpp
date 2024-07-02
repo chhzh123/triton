@@ -1,6 +1,7 @@
 #include <memory>
 #include <stack>
 #include <iostream>
+#include <fstream>
 
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Pass/Pass.h"
@@ -267,7 +268,7 @@ public:
     std::cout << ")";
   }
   void visitAddptr(triton::AddPtrOp op) {
-    is_iter = true;
+    is_iter.push(true);
     appendNode(op.getResult(), "AddPtr");
     appendEdge(op.getOperand(0), op.getResult());
     appendEdge(op.getOperand(1), op.getResult());
@@ -278,11 +279,11 @@ public:
     //   std::cout << getSsaId(this->topForOp.getInductionVar()) << " * ";
     visit(op.getOperand(1));
     std::cout << ")";
-    is_iter = false;
+    is_iter.pop();
   }
   void visitLoadOp(triton::LoadOp op) {
     appendNode(op.getResult(), "Load", true);
-    is_iter = true;
+    is_iter.push(true);
     appendEdge(op.getOperand(0), op.getResult());
     if (mlir::isa<BlockArgument>(op.getOperand(0))) {
       appendNode(op.getOperand(0), "BlockArg");
@@ -300,16 +301,16 @@ public:
       visit(op.getOperand(0));
       std::cout << ")";
     }
-    is_iter = false;
+    is_iter.pop();
   }
   void visitStoreOp(triton::StoreOp op) {
     appendNode(op.getOperand(0), "Store", true);
     appendEdge(op.getOperand(1), op.getOperand(0), true);
-    is_iter = true;
+    is_iter.push(true);
     std::cout << "*(";
     visit(op.getOperand(0));
     std::cout << ") = ";
-    is_iter = false;
+    is_iter.pop();
     visit(op.getOperand(1));
   }
   void visitDotOp(triton::DotOp op) {
@@ -411,8 +412,6 @@ public:
     }
   }
   void appendNode(Value op, std::string name, bool is_tile_statement = false) {
-    // if (is_iter && (name != "AddPtr" && name != "BlockArg"))
-    //   return;
     std::string id = getSsaId(op);
     if (name == "Store")
       id += "-S";
@@ -430,7 +429,7 @@ public:
     if (is_store)
       dest_id += "-S";
     edgestr += "  \"" + getSsaId(src) + "\" -> \"" + dest_id + "\"";
-    if (this->is_iter)
+    if (!is_iter.empty())
       edgestr += "[color = \"orange\"]\n";
     else
       edgestr += "\n";
@@ -440,7 +439,7 @@ public:
   }
 private:
   scf::ForOp topForOp;
-  bool is_iter = false;
+  std::stack<bool> is_iter;
   DenseSet<Operation *> visited;
   std::string nodestr = "";
   std::string edgestr = "";
@@ -459,6 +458,7 @@ public:
     for (auto func : m.getOps<triton::FuncOp>()) {
       // debug
       // GraphDumper().dumpToFile(func, "func.dot");
+      int i = 0;
       for (auto forOp : func.getOps<scf::ForOp>()) {
         auto t = Traverser(forOp);
         for (auto op = forOp.getBody()->getOperations().rbegin(); op != forOp.getBody()->getOperations().rend(); ++op) {
@@ -466,7 +466,12 @@ public:
             t.visit(&(*op));
           }
         }
-        std::cout << t.getDag();
+        std::cout << "\n";
+        std::ofstream outfile;
+        outfile.open("dag" + std::to_string(i) + ".dot");
+        outfile << t.getDag();
+        outfile.close();
+        i++;
       }
     }
   }
