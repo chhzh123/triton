@@ -415,7 +415,7 @@ public:
     std::string id = getSsaId(op);
     if (name == "Store")
       id += "-S";
-    nodestr += "  \"" + id + "\" [label = \"" + id + " " + name + "\"";
+    nodestr += "  \"" + id + "\" [label = \"" + name + "\"";
     if (is_tile_statement)
       nodestr += ", shape = \"box\"";
     else
@@ -426,13 +426,14 @@ public:
   }
   void appendEdge(Value src, Value dest, bool is_store = false) {
     std::string dest_id = getSsaId(dest);
+    std::string src_id = getSsaId(src);
     if (is_store)
       dest_id += "-S";
-    edgestr += "  \"" + getSsaId(src) + "\" -> \"" + dest_id + "\"";
+    edgestr += "  \"" + src_id + "\" -> \"" + dest_id + "\"";
     if (!is_iter.empty())
-      edgestr += "[color = \"orange\"]\n";
+      edgestr += "[color = \"orange\", label = \"" + src_id + "\"]\n";
     else
-      edgestr += "\n";
+      edgestr += "[label = \"" + src_id + "\"]\n";
   }
   std::string getDag() {
     return "digraph G {\n" + nodestr + "\n" + edgestr + "}\n";
