@@ -443,7 +443,7 @@ public:
       if (forOp != topForOp)
         nodestr += ", style = \"filled\", fillcolor = \"grey\"";
       else // inside the loop
-        loop_ops.insert(op);
+        loop_ops.push_back(id);
     } else {
       nodestr += ", style = \"filled\", fillcolor = \"grey\"";
     }
@@ -455,8 +455,10 @@ public:
     // kind = 2: backedge
     std::string dest_id = getSsaId(dest);
     std::string src_id = getSsaId(src);
-    if (kind == 1)
+    if (kind == 1) {
+      edgestr += "  \"" + dest_id + "\" -> \"" + dest_id + "-S\" [color = \"orange\"];\n";
       dest_id += "-S";
+    }
     edgestr += "  \"" + src_id + "\" -> \"" + dest_id + "\"";
     if (auto tensorType = dyn_cast<RankedTensorType>(src.getType())) {
       // need to print out the shape value one by one
@@ -511,7 +513,7 @@ public:
     res += "\n  subgraph cluster_0 {\n";
     res += "    label=\"scf.for\";\n";
     for (auto op : loop_ops) {
-      res += "    \"" + getSsaId(op) + "\";\n";
+      res += "    \"" + op + "\";\n";
     }
     for (int i = 0; i < iter_nodes.size(); i++) {
       res += "    subgraph cluster_" + std::to_string(i + 1) + " {\n";
@@ -531,7 +533,7 @@ private:
   DenseSet<Operation *> visited;
   std::string nodestr = "";
   std::string edgestr = "";
-  DenseSet<Value> loop_ops;
+  std::vector<std::string> loop_ops;
   std::vector<DenseSet<Value>> iter_nodes;
 };
 
