@@ -497,9 +497,11 @@ public:
         src_id += "ptr";
     }
     if (!is_iter.empty()) {
-      if (kind == 2)
+      if (kind == 2) {
         edgestr += "[color = \"blue\", label = \"" + src_id + "\"];\n";
-      else
+        appendNode(dest, "Phi");
+        iter_nodes.push_back({src, dest});
+      } else
         edgestr += "[color = \"orange\", label = \"" + src_id + "\"];\n";
     } else
       edgestr += "[label = \"" + src_id + "\"];\n";
@@ -508,9 +510,17 @@ public:
     std::string res = "digraph G {\n" + nodestr + "\n" + edgestr;
     res += "\n  subgraph cluster_0 {\n";
     res += "    label=\"scf.for\";\n";
-      for (auto op : loop_ops) {
-        res += "    \"" + getSsaId(op) + "\";\n";
+    for (auto op : loop_ops) {
+      res += "    \"" + getSsaId(op) + "\";\n";
+    }
+    for (int i = 0; i < iter_nodes.size(); i++) {
+      res += "    subgraph cluster_" + std::to_string(i + 1) + " {\n";
+      res += "      label=\"iterator\";\n";
+      for (auto op : iter_nodes[i]) {
+        res += "      \"" + getSsaId(op) + "\";\n";
       }
+      res += "    }\n";
+    }
     res += "  }\n";
     res += "}\n";
     return res;
@@ -522,6 +532,7 @@ private:
   std::string nodestr = "";
   std::string edgestr = "";
   DenseSet<Value> loop_ops;
+  std::vector<DenseSet<Value>> iter_nodes;
 };
 
 class WarpSpecializationAnalysisPass
