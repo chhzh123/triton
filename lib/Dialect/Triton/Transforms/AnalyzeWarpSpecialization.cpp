@@ -306,7 +306,7 @@ public:
   }
   void visitStoreOp(triton::StoreOp op) {
     appendNode(op.getOperand(0), "Store", true);
-    appendEdge(op.getOperand(1), op.getOperand(0), true);
+    appendEdge(op.getOperand(1), op.getOperand(0), 1);
     is_iter.push(true);
     std::cout << "*(";
     visit(op.getOperand(0));
@@ -330,10 +330,21 @@ public:
     std::cout << ")";
   }
   void visitYieldOp(scf::YieldOp op) {
+    int i = 0;
     for (auto operand : op.getOperands()) {
       std::cout << getSsaId(operand) << " = ";
       visit(operand);
       std::cout << "\n";
+      // iteration backedge
+      if (auto tensorType = dyn_cast<RankedTensorType>(operand.getType())) {
+        if (mlir::isa<triton::PointerType>(tensorType.getElementType())) {
+          auto blockArg = topForOp.getBody()->getArgument(i + 1);
+          is_iter.push(true);
+          appendEdge(operand, blockArg, 2);
+          is_iter.pop();
+        }
+      }
+      i++;
     }
   }
   void visit(Operation* op) {
@@ -428,15 +439,20 @@ public:
     if (auto forOp = dyn_cast<scf::ForOp>(block->getParentOp())) {
       if (forOp != topForOp)
         nodestr += ", style = \"filled\", fillcolor = \"grey\"";
+      else // inside the loop
+        loop_ops.insert(op);
     } else {
       nodestr += ", style = \"filled\", fillcolor = \"grey\"";
     }
     nodestr += "];\n";
   }
-  void appendEdge(Value src, Value dest, bool is_store = false) {
+  void appendEdge(Value src, Value dest, int kind = 0) {
+    // kind = 0: normal edge
+    // kind = 1: store edge
+    // kind = 2: backedge
     std::string dest_id = getSsaId(dest);
     std::string src_id = getSsaId(src);
-    if (is_store)
+    if (kind == 1)
       dest_id += "-S";
     edgestr += "  \"" + src_id + "\" -> \"" + dest_id + "\"";
     if (auto tensorType = dyn_cast<RankedTensorType>(src.getType())) {
@@ -477,13 +493,24 @@ public:
       else
         src_id += "ptr";
     }
-    if (!is_iter.empty())
-      edgestr += "[color = \"orange\", label = \"" + src_id + "\"];\n";
-    else
+    if (!is_iter.empty()) {
+      if (kind == 2)
+        edgestr += "[color = \"blue\", label = \"" + src_id + "\"];\n";
+      else
+        edgestr += "[color = \"orange\", label = \"" + src_id + "\"];\n";
+    } else
       edgestr += "[label = \"" + src_id + "\"];\n";
   }
   std::string getDag() {
-    return "digraph G {\n" + nodestr + "\n" + edgestr + "}\n";
+    std::string res = "digraph G {\n" + nodestr + "\n" + edgestr;
+    res += "\n  subgraph cluster_0 {\n";
+    res += "    label=\"scf.for\";\n";
+      for (auto op : loop_ops) {
+        res += "    \"" + getSsaId(op) + "\";\n";
+      }
+    res += "  }\n";
+    res += "}\n";
+    return res;
   }
 private:
   scf::ForOp topForOp;
@@ -491,6 +518,7 @@ private:
   DenseSet<Operation *> visited;
   std::string nodestr = "";
   std::string edgestr = "";
+  DenseSet<Value> loop_ops;
 };
 
 class WarpSpecializationAnalysisPass
