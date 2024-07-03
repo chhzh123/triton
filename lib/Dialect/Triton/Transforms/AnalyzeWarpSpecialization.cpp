@@ -416,6 +416,7 @@ public:
   }
   void visit(Value value) {
     if (auto blockArg = dyn_cast<BlockArgument>(value)) {
+      appendNode(blockArg, "BlockArg");
       std::cout << getSsaId(blockArg);
     } else {
       auto op = value.getDefiningOp();
@@ -427,6 +428,8 @@ public:
     std::string id = getSsaId(op);
     if (name == "Store")
       id += "-S";
+    if (name == "BlockArg" && op == topForOp.getInductionVar())
+      name = "IterVar";
     nodestr += "  \"" + id + "\" [label = \"" + name + "\"";
     if (is_tile_statement)
       nodestr += ", shape = \"box\"";
