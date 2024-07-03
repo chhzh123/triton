@@ -423,6 +423,14 @@ public:
       nodestr += ", shape = \"ellipse\"";
     if (name == "Load")
       nodestr += ", style = \"filled\", fillcolor = \"yellow\"";
+    // test if op is under the block of current topForOp
+    auto block = op.getParentBlock();
+    if (auto forOp = dyn_cast<scf::ForOp>(block->getParentOp())) {
+      if (forOp != topForOp)
+        nodestr += ", style = \"filled\", fillcolor = \"grey\"";
+    } else {
+      nodestr += ", style = \"filled\", fillcolor = \"grey\"";
+    }
     nodestr += "];\n";
   }
   void appendEdge(Value src, Value dest, bool is_store = false) {
