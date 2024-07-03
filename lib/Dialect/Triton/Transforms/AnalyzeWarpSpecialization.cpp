@@ -449,9 +449,9 @@ public:
       else if (tensorType.getElementType().isF64())
         src_id += "f64";
       else if (type::isFloat(tensorType.getElementType()))
-        src_id += "f?";
+        src_id += "float";
       else
-        src_id += "?";
+        src_id += "ptr";
     } else {
       src_id += ": ";
       if (src.getType().isInteger(32))
@@ -465,9 +465,9 @@ public:
       else if (src.getType().isF64())
         src_id += "f64";
       else if (type::isFloat(src.getType()))
-        src_id += "f?";
+        src_id += "float";
       else
-        src_id += "?";
+        src_id += "ptr";
     }
     if (!is_iter.empty())
       edgestr += "[color = \"orange\", label = \"" + src_id + "\"];\n";
