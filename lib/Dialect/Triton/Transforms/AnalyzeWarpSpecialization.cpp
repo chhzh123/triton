@@ -422,7 +422,7 @@ public:
     else
       nodestr += ", shape = \"ellipse\"";
     if (name == "Load")
-      nodestr += ", color = \"blue\"";
+      nodestr += ", style = \"filled\", fillcolor = \"yellow\"";
     nodestr += "];\n";
   }
   void appendEdge(Value src, Value dest, bool is_store = false) {
@@ -433,7 +433,7 @@ public:
     edgestr += "  \"" + src_id + "\" -> \"" + dest_id + "\"";
     if (auto tensorType = dyn_cast<RankedTensorType>(src.getType())) {
       // need to print out the shape value one by one
-      src_id += " : ";
+      src_id += ": ";
       for (int i = 0; i < tensorType.getRank(); i++) {
         src_id += std::to_string(tensorType.getShape()[i]);
         src_id += "x";
@@ -452,11 +452,27 @@ public:
         src_id += "f?";
       else
         src_id += "?";
+    } else {
+      src_id += ": ";
+      if (src.getType().isInteger(32))
+        src_id += "i32";
+      else if (src.getType().isInteger(64))
+        src_id += "i64";
+      else if (src.getType().isF16())
+        src_id += "f16";
+      else if (src.getType().isF32())
+        src_id += "f32";
+      else if (src.getType().isF64())
+        src_id += "f64";
+      else if (type::isFloat(src.getType()))
+        src_id += "f?";
+      else
+        src_id += "?";
     }
     if (!is_iter.empty())
-      edgestr += "[color = \"orange\", label = \"" + src_id + "\"]\n";
+      edgestr += "[color = \"orange\", label = \"" + src_id + "\"];\n";
     else
-      edgestr += "[label = \"" + src_id + "\"]\n";
+      edgestr += "[label = \"" + src_id + "\"];\n";
   }
   std::string getDag() {
     return "digraph G {\n" + nodestr + "\n" + edgestr + "}\n";
