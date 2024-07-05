@@ -283,6 +283,7 @@ public:
     is_iter.pop();
   }
   void visitLoadOp(triton::LoadOp op) {
+    // TODO: May also need to consider mask
     appendNode(op.getResult(), "Load", true);
     is_iter.push(true);
     appendEdge(op.getOperand(0), op.getResult());
@@ -443,8 +444,15 @@ public:
     if (auto forOp = dyn_cast<scf::ForOp>(block->getParentOp())) {
       if (forOp != topForOp)
         nodestr += ", style = \"filled\", fillcolor = \"grey\"";
-      else // inside the loop
+      else { // inside the loop
         loop_ops.push_back(id);
+        OpBuilder builder(forOp);
+        // if op is not blockarg
+        if (!mlir::isa<BlockArgument>(op)) {
+          int label = ((!is_iter.empty() || name == "Load") ? 0 : 1);
+          op.getDefiningOp()->setAttr("partition", builder.getI32IntegerAttr(label));
+        }
+      }
     } else {
       nodestr += ", style = \"filled\", fillcolor = \"grey\"";
     }
@@ -564,6 +572,10 @@ public:
         outfile.open("dag" + std::to_string(i) + ".dot");
         outfile << t.getDag();
         outfile.close();
+        // rewrite
+        // OpBuilder builder(forOp);
+        // builder.clone(*forOp.getOperation());
+        m.dump();
         i++;
       }
     }
