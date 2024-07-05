@@ -295,7 +295,8 @@ public:
       auto forOp = dyn_cast<scf::ForOp>(block->getParentOp());
       visit(blockArg);
       // get initial value of the corresponding block argument (long expressions)
-      // visit(forOp.getInitArgs()[blockArg.getArgNumber() - 1]); // arg0 is the loop variable
+      appendEdge(forOp.getInitArgs()[blockArg.getArgNumber() - 1], blockArg);
+      visit(forOp.getInitArgs()[blockArg.getArgNumber() - 1]); // arg0 is the loop variable
       std::cout << ")";
     } else {
       std::cout << "*(";
