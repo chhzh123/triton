@@ -304,6 +304,11 @@ public:
       visit(op.getOperand(0));
       std::cout << ")";
     }
+    // mask
+    if (op.getNumOperands() > 1) {
+      appendEdge(op.getOperand(1), op.getResult());
+      visit(op.getOperand(1));
+    }
     is_iter.pop();
   }
   void visitStoreOp(triton::StoreOp op) {
