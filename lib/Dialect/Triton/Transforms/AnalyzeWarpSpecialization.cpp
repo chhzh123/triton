@@ -52,7 +52,11 @@ public:
   Traverser(scf::ForOp op) {
     this->topForOp = op;
   }
+  Traverser(triton::FuncOp op) {
+    this->topFuncOp = op;
+  }
   void visitProgramIdOp(triton::GetProgramIdOp op) {
+    appendNode(op.getResult(), "ProgramId");
     std::cout << "pid";
   }
   void visitConstantOp(arith::ConstantOp op) {
@@ -349,9 +353,21 @@ public:
           is_iter.push(true);
           appendEdge(operand, blockArg, 2);
           is_iter.pop();
+        } else {
+          appendEdge(operand, topForOp.getResults()[i]);
         }
       }
       i++;
+    }
+  }
+  void visitForOp(scf::ForOp forOp) {
+    appendNode(forOp.getResults()[0], "Yield");
+    appendNode(forOp.getInductionVar(), "IterVar");
+    this->topForOp = forOp;
+    for (auto op = forOp.getBody()->getOperations().rbegin(); op != forOp.getBody()->getOperations().rend(); ++op) {
+      if (llvm::isa<scf::YieldOp, triton::StoreOp>(*op)) {
+        visit(&(*op));
+      }
     }
   }
   void visit(Operation* op) {
@@ -417,6 +433,8 @@ public:
         visitYieldOp(new_op);
       } else if (auto new_op = dyn_cast<triton::ReduceOp>(op)) {
         visitReduceOp(new_op);
+      } else if (auto new_op = dyn_cast<scf::ForOp>(op)) {
+        visitForOp(new_op);
       } else {
         std::cout << "Unknown op: " << op->getName().getStringRef().str() << "\n";
       }
@@ -435,7 +453,7 @@ public:
     std::string id = getSsaId(op);
     if (name == "Store")
       id += "-S";
-    if (name == "BlockArg" && op == topForOp.getInductionVar())
+    if (name == "BlockArg" && topForOp != nullptr && op == topForOp.getInductionVar())
       name = "IterVar";
     nodestr += "  \"" + id + "\" [label = \"" + name + "\"";
     if (is_tile_statement)
@@ -542,7 +560,8 @@ public:
     return res;
   }
 private:
-  scf::ForOp topForOp;
+  scf::ForOp topForOp = nullptr;
+  triton::FuncOp topFuncOp;
   std::stack<bool> is_iter;
   DenseSet<Operation *> visited;
   std::string nodestr = "";
@@ -565,24 +584,45 @@ public:
       // debug
       // GraphDumper().dumpToFile(func, "func.dot");
       int i = 0;
-      for (auto forOp : func.getOps<scf::ForOp>()) {
-        auto t = Traverser(forOp);
-        for (auto op = forOp.getBody()->getOperations().rbegin(); op != forOp.getBody()->getOperations().rend(); ++op) {
-          if (llvm::isa<scf::YieldOp, triton::StoreOp>(*op)) {
-            t.visit(&(*op));
-          }
+      DenseSet<Operation *> opToDelete;
+      auto t = Traverser(func);
+      mlir::Block &body = func.getBody().front();
+      for (auto it = body.rbegin(); it != body.rend(); ++it) {
+        if (llvm::isa<triton::StoreOp>(*it)) {
+          std::cout << "Get here\n";
+          t.visit(&(*it));
         }
-        std::cout << "\n";
-        std::ofstream outfile;
-        outfile.open("dag" + std::to_string(i) + ".dot");
-        outfile << t.getDag();
-        outfile.close();
-        // rewrite
-        // OpBuilder builder(forOp);
-        // builder.clone(*forOp.getOperation());
-        m.dump();
-        i++;
       }
+      // for (auto forOp : func.getOps<scf::ForOp>()) {
+      //   for (auto op = forOp.getBody()->getOperations().rbegin(); op != forOp.getBody()->getOperations().rend(); ++op) {
+      //     if (llvm::isa<scf::YieldOp, triton::StoreOp>(*op)) {
+      //       t.visit(&(*op));
+      //     }
+      //   }
+      //   // rewrite
+      //   // for (auto& op : forOp.getBody()->getOperations()) {
+      //   //   if (op.hasAttr("partition")) {
+      //   //     if (mlir::cast<IntegerAttr>(op.getAttr("partition")).getInt() == 1) {
+      //   //       // remove the operation
+      //   //       opToDelete.insert(&op);
+      //   //     }
+      //   //   }
+      //   // }
+      //   // // create another partition
+      //   // OpBuilder builder(forOp);
+      //   // builder.clone(*forOp.getOperation());
+      //   // for (Operation *op : opToDelete) {
+      //   //   op->erase();
+      //   // }
+      //   m.dump();
+      //   i++;
+      // }
+      m.dump();
+      std::cout << "\n";
+      std::ofstream outfile;
+      outfile.open("dag-all.dot");
+      outfile << t.getDag();
+      outfile.close();
     }
   }
 };
