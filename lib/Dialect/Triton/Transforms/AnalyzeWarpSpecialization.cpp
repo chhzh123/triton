@@ -287,7 +287,6 @@ public:
     is_iter.pop();
   }
   void visitLoadOp(triton::LoadOp op) {
-    // TODO: May also need to consider mask
     appendNode(op.getResult(), "Load", true);
     is_iter.push(true);
     appendEdge(op.getOperand(0), op.getResult());
@@ -361,7 +360,9 @@ public:
     }
   }
   void visitForOp(scf::ForOp forOp) {
-    appendNode(forOp.getResults()[0], "Yield");
+    // if number of results > 0
+    if (forOp.getNumResults() > 0)
+      appendNode(forOp.getResults()[0], "Yield");
     appendNode(forOp.getInductionVar(), "IterVar");
     this->topForOp = forOp;
     for (auto op = forOp.getBody()->getOperations().rbegin(); op != forOp.getBody()->getOperations().rend(); ++op) {
@@ -561,7 +562,7 @@ public:
   }
 private:
   scf::ForOp topForOp = nullptr;
-  triton::FuncOp topFuncOp;
+  triton::FuncOp topFuncOp = nullptr;
   std::stack<bool> is_iter;
   DenseSet<Operation *> visited;
   std::string nodestr = "";
@@ -588,34 +589,24 @@ public:
       auto t = Traverser(func);
       mlir::Block &body = func.getBody().front();
       for (auto it = body.rbegin(); it != body.rend(); ++it) {
-        if (llvm::isa<triton::StoreOp>(*it)) {
-          std::cout << "Get here\n";
+        if (llvm::isa<triton::StoreOp, scf::ForOp>(*it)) {
           t.visit(&(*it));
         }
       }
-      // for (auto forOp : func.getOps<scf::ForOp>()) {
-      //   for (auto op = forOp.getBody()->getOperations().rbegin(); op != forOp.getBody()->getOperations().rend(); ++op) {
-      //     if (llvm::isa<scf::YieldOp, triton::StoreOp>(*op)) {
-      //       t.visit(&(*op));
+      // rewrite
+      // for (auto& op : forOp.getBody()->getOperations()) {
+      //   if (op.hasAttr("partition")) {
+      //     if (mlir::cast<IntegerAttr>(op.getAttr("partition")).getInt() == 1) {
+      //       // remove the operation
+      //       opToDelete.insert(&op);
       //     }
       //   }
-      //   // rewrite
-      //   // for (auto& op : forOp.getBody()->getOperations()) {
-      //   //   if (op.hasAttr("partition")) {
-      //   //     if (mlir::cast<IntegerAttr>(op.getAttr("partition")).getInt() == 1) {
-      //   //       // remove the operation
-      //   //       opToDelete.insert(&op);
-      //   //     }
-      //   //   }
-      //   // }
-      //   // // create another partition
-      //   // OpBuilder builder(forOp);
-      //   // builder.clone(*forOp.getOperation());
-      //   // for (Operation *op : opToDelete) {
-      //   //   op->erase();
-      //   // }
-      //   m.dump();
-      //   i++;
+      // }
+      // // create another partition
+      // OpBuilder builder(forOp);
+      // builder.clone(*forOp.getOperation());
+      // for (Operation *op : opToDelete) {
+      //   op->erase();
       // }
       m.dump();
       std::cout << "\n";
